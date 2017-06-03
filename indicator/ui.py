@@ -46,9 +46,11 @@ class Ui(object):
 
     def change_real_currency(self, real_currency):
         if real_currency == 'EUR':
-            self.real_currency_label = '€'
+            # Euro symbol
+            self.real_currency_label = u'\u20AC'
         elif real_currency == 'USD':
-            self.real_currency_label = '$'
+            # Dollar symbol
+            self.real_currency_label = u'\u0024'
         else:
             self.real_currency_label = real_currency
 

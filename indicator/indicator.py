@@ -1,4 +1,3 @@
-import sys
 from .ui import Ui
 from .backend import Backend
 from threading import Timer
@@ -8,7 +7,7 @@ APPINDICATOR_ID = 'coinbase_indicator'
 
 class Indicator(object):
 
-    def __init__(self, client: Backend):
+    def __init__(self, client):
         self.client = client
 
         self.prices = {}
@@ -42,7 +41,7 @@ class Indicator(object):
         for crypto_currency in self.client.get_available_crypto_currencies():
             self.prices[crypto_currency] = self.client.get_spot_price(crypto_currency)
 
-    def __refresh(self, silent: bool = False):
+    def __refresh(self, silent=False):
         self.__update_prices()
         self.interface.update_prices(self.prices)
         if not silent:
