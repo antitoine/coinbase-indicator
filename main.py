@@ -5,6 +5,7 @@ import sys
 import signal
 from os.path import join
 from os import getcwd
+from threading import Timer
 import webbrowser
 import json
 import requests
@@ -33,6 +34,9 @@ COINBASE_URL = 'https://www.coinbase.com/'
 COINBASE_API_VERSION = 'v2'
 COINBASE_API_VERSION_DATE = '2017-06-03'
 
+MENU_ITEM_PRICE = 'Price-'
+MENU_ITEM_REFRESH = 'Refresh'
+MENU_ITEM_QUIT = 'Quit'
 
 class CoinbaseAppIndicator(object):
 
@@ -47,15 +51,33 @@ class CoinbaseAppIndicator(object):
             ETHEREUM_KEY: '-1',
             LITCOIN_KEY: '-1',
         }
+        self.__init_menu()
         self.update()
 
     def run(self):
+        self.__display_notification('Indicator started')
         gtk.main()
 
     def update(self):
         self.__update_prices()
         self.__update_icon()
         self.__update_menu()
+
+    def quit(self, _):
+        notify.uninit()
+        gtk.main_quit()
+
+    def goto_coinbase(self, _):
+        webbrowser.open(COINBASE_URL)
+
+    def refresh(self, _):
+        # self.__disable_menu_item(MENU_ITEM_REFRESH)
+        self.update()
+        notification_msg = 'Prices updated<br>'
+        for crypto_currency in self.prices:
+            notification_msg += '1 ' + crypto_currency + ' = ' + self.prices[crypto_currency] + '<br>'
+        self.__display_notification(notification_msg)
+        # Timer(5.0, lambda: self.__enable_menu_item(MENU_ITEM_REFRESH))
 
     def __update_prices(self):
         for crypto_currency in self.prices:
@@ -67,26 +89,37 @@ class CoinbaseAppIndicator(object):
         else:
             self.indicator.set_icon(self.__icon_path(ICON_INACTIVE))
 
-    def __update_menu(self):
-        menu = gtk.Menu()
+    def __init_menu(self):
+        self.menu = gtk.Menu()
 
+        self.menu_items = {}
         for crypto_currency in self.prices:
-            item = gtk.MenuItem('1 ' + crypto_currency + ' = ' + str(self.prices[crypto_currency]))
-            item.connect('activate', self.on_open_coinbase)
-            menu.append(item)
+            item = gtk.MenuItem(self.__get_price_menu_label(crypto_currency))
+            item.connect('activate', self.goto_coinbase)
+            self.menu_items[MENU_ITEM_PRICE + crypto_currency] = item
+            self.menu.append(item)
 
-        menu.append(gtk.SeparatorMenuItem("Options"))
+        self.menu.append(gtk.SeparatorMenuItem("Options"))
 
-        item_refresh = gtk.MenuItem('Refresh')
-        item_refresh.connect('activate', self.on_refresh)
-        menu.append(item_refresh)
+        item_refresh = gtk.MenuItem(MENU_ITEM_REFRESH)
+        item_refresh.connect('activate', self.refresh)
+        self.menu_items[MENU_ITEM_REFRESH] = item_refresh
+        self.menu.append(item_refresh)
 
-        item_quit = gtk.MenuItem('Quit')
-        item_quit.connect('activate', self.on_quit)
-        menu.append(item_quit)
+        item_quit = gtk.MenuItem(MENU_ITEM_QUIT)
+        item_quit.connect('activate', self.quit)
+        self.menu_items[MENU_ITEM_QUIT] = item_quit
+        self.menu.append(item_quit)
 
-        menu.show_all()
-        self.indicator.set_menu(menu)
+        self.menu.show_all()
+        self.indicator.set_menu(self.menu)
+
+    def __update_menu(self):
+        for crypto_currency in self.prices:
+            self.menu_items[MENU_ITEM_PRICE + crypto_currency].get_child().set_text(self.__get_price_menu_label(crypto_currency))
+
+    def __get_price_menu_label(self, crypto_currency):
+        return '1 ' + crypto_currency + ' = ' + str(self.prices[crypto_currency])
 
     def __coinbase_get_spot_price(self, crypto_currency):
         data = self.__coinbase_get('prices/' + crypto_currency + '-' + FINAL_CURRENCY + '/spot')
@@ -131,18 +164,16 @@ class CoinbaseAppIndicator(object):
     def __icon_path(self, name):
         return join(getcwd(), 'img', '%s.svg' % name)
 
-    def quit(self):
-        notify.uninit()
-        gtk.main_quit()
+    def __display_notification(self, msg):
+        notify.Notification.new('<b>Coinbase Indicator</b>', msg, self.__icon_path(ICON_ACTIVE),).show()
 
-    def open_coinbase(self):
-        webbrowser.open(COINBASE_URL)
+    def __disable_menu_item(self, item_name):
+        self.menu_items[item_name].set_sensitive(False)
+        self.menu_items[item_name].show()
 
-    def on_quit(self, _): self.quit()
-
-    def on_refresh(self, _): self.update()
-
-    def on_open_coinbase(self, _): self.open_coinbase()
+    def __enable_menu_item(self, item_name):
+        self.menu_items[item_name].set_sensitive(True)
+        self.menu_items[item_name].show()
 
 if __name__ == '__main__':
     signal.signal(signal.SIGINT, signal.SIG_DFL)
