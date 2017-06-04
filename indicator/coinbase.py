@@ -2,6 +2,7 @@ from __future__ import print_function
 import sys
 import json
 import requests
+import time
 
 from .backend import Backend
 
@@ -40,13 +41,20 @@ class Coinbase(Backend):
 
     @staticmethod
     def __get(uri):
-        response = requests.get(
-            COINBASE_API_URL + COINBASE_API_VERSION + '/' + uri,
-            headers={
-                'content-type': 'application/json',
-                'CB-VERSION': COINBASE_API_VERSION_DATE,
-            },
-        )
+        response = None
+        while response is None:
+            try:
+                response = requests.get(
+                    COINBASE_API_URL + COINBASE_API_VERSION + '/' + uri,
+                    headers={
+                        'content-type': 'application/json',
+                        'CB-VERSION': COINBASE_API_VERSION_DATE,
+                    },
+                )
+            except requests.exceptions.RequestException as e:
+                print('Error - Unable to make the request to the Coinbase API - ' + str(e), file=sys.stderr)
+                time.sleep(10)
+
         json_data = json.loads(response.text)
         if 'warnings' in json_data:
             for warning in json_data['warnings']:
