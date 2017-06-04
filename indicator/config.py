@@ -4,11 +4,12 @@ import json
 CONFIG_FILE_PATH = os.path.expanduser("~/.coinbase-indicator")
 
 GENERAL_OPTION_KEY = 'general'
+OPTION_KEY_LARGE_LABEL = 'show_crypto_currency_in_the_label'
 OPTION_KEY_NOTIFICATION = 'show_notifications'
 OPTION_KEY_THEME_MONOCHROME = 'theme_monochrome'
 
 CRYPTO_CURRENCY_OPTION_KEY = 'crypto_currency'
-OPTION_KEY_CRYPTO_CURRENCY_SHOW = 'show_exchange_price_of_'
+OPTION_KEY_CRYPTO_CURRENCY_SHOW = 'show_exchange_price'
 
 
 class Option(object):
@@ -25,23 +26,12 @@ class Option(object):
     def set_status(self, status):
         self.status = status
 
-    def get_crypto_currency(self):
-        return None
-
-
-class CryptoCurrencyOption(Option):
-    def __init__(self, status, label, crypto_currency):
-        Option.__init__(self, status, label)
-        self.crypto_currency = crypto_currency
-
-    def get_crypto_currency(self):
-        return self.crypto_currency
-
 
 class Config(object):
 
     def __init__(self):
         self.general_options = {
+            OPTION_KEY_LARGE_LABEL: Option(False, self.__get_label(OPTION_KEY_LARGE_LABEL)),
             OPTION_KEY_NOTIFICATION: Option(True, self.__get_label(OPTION_KEY_NOTIFICATION)),
             OPTION_KEY_THEME_MONOCHROME: Option(True, self.__get_label(OPTION_KEY_THEME_MONOCHROME)),
         }
@@ -51,7 +41,7 @@ class Config(object):
         for crypto_currency in crypto_currencies:
             if crypto_currency not in self.crypto_currency_options:
                 self.crypto_currency_options[crypto_currency] = {
-                    OPTION_KEY_CRYPTO_CURRENCY_SHOW: CryptoCurrencyOption(False, self.__get_label(OPTION_KEY_CRYPTO_CURRENCY_SHOW + crypto_currency), crypto_currency),
+                    OPTION_KEY_CRYPTO_CURRENCY_SHOW: Option(False, self.__get_label(OPTION_KEY_CRYPTO_CURRENCY_SHOW)),
                 }
 
     def load(self):
@@ -69,7 +59,7 @@ class Config(object):
                 if crypto_currency not in self.crypto_currency_options:
                     self.crypto_currency_options[crypto_currency] = {}
                 for option_key in config_dict[CRYPTO_CURRENCY_OPTION_KEY][crypto_currency]:
-                    self.crypto_currency_options[crypto_currency][option_key] = CryptoCurrencyOption(config_dict[CRYPTO_CURRENCY_OPTION_KEY][crypto_currency][option_key], self.__get_label(option_key), crypto_currency)
+                    self.crypto_currency_options[crypto_currency][option_key] = Option(config_dict[CRYPTO_CURRENCY_OPTION_KEY][crypto_currency][option_key], self.__get_label(option_key))
 
     def persist(self):
         config_dict = {
@@ -109,6 +99,12 @@ class Config(object):
         return \
             OPTION_KEY_NOTIFICATION in self.general_options \
             and self.general_options[OPTION_KEY_NOTIFICATION].get_status()
+
+    def is_large_label_visible(self):
+        return \
+            OPTION_KEY_LARGE_LABEL in self.general_options \
+            and self.general_options[OPTION_KEY_LARGE_LABEL].get_status()
+
 
     @staticmethod
     def __get_label(key):

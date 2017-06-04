@@ -73,30 +73,38 @@ class Ui(object):
             item.connect('activate', self.__open_store)
             menu.append(item)
 
-        menu.append(gtk.SeparatorMenuItem('Refresh'))
+        menu.append(gtk.SeparatorMenuItem())
 
         item_refresh = gtk.MenuItem('Refresh prices')
         item_refresh.connect('activate', lambda _: self.refresh_fc())
         menu.append(item_refresh)
 
-        menu.append(gtk.SeparatorMenuItem('Crypto currencies options'))
+        menu.append(gtk.SeparatorMenuItem())
 
         crypto_currency_options = self.config.get_crypto_currency_options()
         for crypto_currency in crypto_currency_options:
+            crypto_currency_sub_menu = gtk.Menu()
             for option_key in crypto_currency_options[crypto_currency]:
                 item = gtk.CheckMenuItem(crypto_currency_options[crypto_currency][option_key].get_label(), active=crypto_currency_options[crypto_currency][option_key].get_status())
                 item.connect("activate", lambda _, currency, key: self.__toggle_crypto_currency_option_status(currency, key), crypto_currency, option_key)
-                menu.append(item)
+                crypto_currency_sub_menu.append(item)
+            crypto_currency_item = gtk.MenuItem(crypto_currency)
+            crypto_currency_item.set_submenu(crypto_currency_sub_menu)
+            menu.append(crypto_currency_item)
 
-        menu.append(gtk.SeparatorMenuItem('General options'))
+        menu.append(gtk.SeparatorMenuItem())
 
+        general_settings_sub_menu = gtk.Menu()
         options = self.config.get_general_options()
         for option_key in options:
             item = gtk.CheckMenuItem(options[option_key].get_label(), active=options[option_key].get_status())
             item.connect("activate", lambda _, key: self.__toggle_general_option_status(key), option_key)
-            menu.append(item)
+            general_settings_sub_menu.append(item)
+        general_settings_item = gtk.MenuItem('Settings')
+        general_settings_item.set_submenu(general_settings_sub_menu)
+        menu.append(general_settings_item)
 
-        menu.append(gtk.SeparatorMenuItem('Quit'))
+        menu.append(gtk.SeparatorMenuItem())
 
         item_quit = gtk.MenuItem('Quit')
         item_quit.connect('activate', lambda _: self.quit_fc())
@@ -107,14 +115,18 @@ class Ui(object):
 
     def __update_indicator_label(self):
         label = ''
+        large = self.config.is_large_label_visible()
         for crypto_currency in self.prices:
             if self.config.is_crypto_currency_visible(crypto_currency):
-                label += '  ' + self.__get_exchange_price_label(crypto_currency, self.prices[crypto_currency], False)
+                label += ' | ' + self.__get_exchange_price_label(crypto_currency, self.prices[crypto_currency], large)
+        if label:
+            label = label[2:]
         self.indicator.set_label(label, '')
 
     def __toggle_general_option_status(self, option_key):
         option = self.config.get_general_options()[option_key]
         option.set_status(not option.get_status())
+        self.__update_indicator_label()
         self.__update_icon()
         self.__update_menu()
         self.config.persist()
@@ -128,7 +140,7 @@ class Ui(object):
 
     def __get_exchange_price_label(self, crypto_currency, price, large=True):
         if large:
-            return '1 ' + crypto_currency + ' = ' + str(price) + self.real_currency_label
+            return crypto_currency + ' - ' + str(price) + self.real_currency_label
         else:
             return str(price) + self.real_currency_label
 
