@@ -1,5 +1,5 @@
 from os.path import join
-from os import getcwd
+from os import path
 import webbrowser
 import gi
 gi.require_version('Gtk', '3.0')
@@ -146,9 +146,9 @@ class Ui(object):
 
     def __get_icon_path(self):
         if self.config.is_theme_monochrome():
-            return join(getcwd(), 'img', '%s.svg' % ICON_MONOCHROME)
+            return join(path.dirname(path.abspath(__file__)), '../img', '%s.svg' % ICON_MONOCHROME)
         else:
-            return join(getcwd(), 'img', '%s.svg' % ICON_COLOR)
+            return join(path.dirname(path.abspath(__file__)), '../img', '%s.svg' % ICON_COLOR)
 
     def __open_store(self, _):
         webbrowser.open(self.store_url)
