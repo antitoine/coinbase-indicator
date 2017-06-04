@@ -88,7 +88,7 @@ class Ui(object):
             self.menu_items[MENU_ITEM_PRICE + crypto_currency] = item
             self.menu.append(item)
 
-        self.menu.append(gtk.SeparatorMenuItem("Refresh"))
+        self.menu.append(gtk.SeparatorMenuItem('Refresh'))
 
         item_refresh = gtk.MenuItem('Refresh prices')
         item_refresh.connect('activate', lambda _: self.refresh_fc())
@@ -106,7 +106,7 @@ class Ui(object):
 
         self.menu.append(gtk.SeparatorMenuItem('Quit'))
 
-        item_quit = gtk.MenuItem(MENU_ITEM_QUIT)
+        item_quit = gtk.MenuItem('Quit')
         item_quit.connect('activate', lambda _: self.quit_fc())
         self.menu_items[MENU_ITEM_QUIT] = item_quit
         self.menu.append(item_quit)
