@@ -1,5 +1,5 @@
 from .ui import Ui
-from .backend import Backend
+from .config import Config
 from threading import Timer
 
 APPINDICATOR_ID = 'coinbase_indicator'
@@ -9,6 +9,10 @@ class Indicator(object):
 
     def __init__(self, client):
         self.client = client
+
+        self.config = Config()
+        self.config.set_crypto_currencies_options(self.client.get_available_crypto_currencies())
+        self.config.load()
 
         self.prices = {}
         self.__update_prices()
@@ -22,7 +26,8 @@ class Indicator(object):
             self.client.get_real_currency(),
             self.client.get_store_url(),
             self.__refresh,
-            self.__quit
+            self.__quit,
+            self.config,
         )
 
         self.refresh_thread = None
@@ -43,6 +48,7 @@ class Indicator(object):
 
     def __refresh(self, silent=False):
         self.__update_prices()
+        self.interface.update_icon()
         self.interface.update_prices(self.prices)
         if not silent:
             self.interface.display_notification('Prices updated')
