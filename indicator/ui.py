@@ -20,36 +20,27 @@ ICON_COLOR = 'icon-1'
 
 class Ui(object):
 
-    def __init__(self, app_id, crypto_currencies, real_currency, store_url, refresh_fc, quit_fc, config):
+    def __init__(self, app_id, prices, real_currency, store_url, refresh_fc, quit_fc, config):
         self.real_currency_label = ''
         self.store_url = store_url
         self.config = config
         self.refresh_fc = refresh_fc
         self.quit_fc = quit_fc
+        self.prices = prices
 
         self.indicator = appindicator.Indicator.new(app_id, self.__get_icon_path(), appindicator.IndicatorCategory.APPLICATION_STATUS)
         self.indicator.set_status(appindicator.IndicatorStatus.ACTIVE)
         self.indicator.set_label('', '')
         notify.init(app_id)
-        self.change_real_currency(real_currency)
 
-        self.__init_menu(crypto_currencies)
+        self.change_real_currency(real_currency, self.prices)
 
-    def update_icon(self):
-        self.indicator.set_icon(self.__get_icon_path())
+    def update_prices(self, prices):
+        self.prices = prices
+        self.__update_menu()
+        self.__update_indicator_label()
 
-    def update_prices(self, crypto_currencies):
-        label = ''
-        for crypto_currency in crypto_currencies:
-            self.menu_items[MENU_ITEM_PRICE + crypto_currency].get_child().set_text(
-                self.__get_exchange_price_label(crypto_currency, crypto_currencies[crypto_currency])
-            )
-            self.menu_items[MENU_ITEM_PRICE + crypto_currency].show()
-            if self.config.has_crypto_currency_option(crypto_currency) and self.config.get_crypto_currency_option(crypto_currency).get_status():
-                label += '  ' + self.__get_exchange_price_label(crypto_currency, crypto_currencies[crypto_currency], False)
-        self.indicator.set_label(label, '')
-
-    def change_real_currency(self, real_currency):
+    def change_real_currency(self, real_currency, prices):
         if real_currency == 'EUR':
             # Euro symbol
             self.real_currency_label = u'\u20AC'
@@ -58,17 +49,10 @@ class Ui(object):
             self.real_currency_label = u'\u0024'
         else:
             self.real_currency_label = real_currency
-
-    def disable_menu_item(self, item_name):
-        self.menu_items[item_name].set_sensitive(False)
-        self.menu_items[item_name].show()
-
-    def enable_menu_item(self, item_name):
-        self.menu_items[item_name].set_sensitive(True)
-        self.menu_items[item_name].show()
+        self.update_prices(prices)
 
     def display_notification(self, msg):
-        if self.config.get_notification_option().get_status():
+        if self.config.is_notification_visible():
             notify.Notification.new('<b>Coinbase Indicator</b>', msg, self.__get_icon_path(),).show()
 
     def display(self):
@@ -78,47 +62,69 @@ class Ui(object):
         notify.uninit()
         gtk.main_quit()
 
-    def __init_menu(self, crypto_currencies):
-        self.menu = gtk.Menu()
+    def __update_icon(self):
+        self.indicator.set_icon(self.__get_icon_path())
 
-        self.menu_items = {}
-        for crypto_currency in crypto_currencies:
-            item = gtk.MenuItem(self.__get_exchange_price_label(crypto_currency, crypto_currencies[crypto_currency]))
+    def __update_menu(self):
+        menu = gtk.Menu()
+
+        for crypto_currency in self.prices:
+            item = gtk.MenuItem(self.__get_exchange_price_label(crypto_currency, self.prices[crypto_currency]))
             item.connect('activate', self.__open_store)
-            self.menu_items[MENU_ITEM_PRICE + crypto_currency] = item
-            self.menu.append(item)
+            menu.append(item)
 
-        self.menu.append(gtk.SeparatorMenuItem('Refresh'))
+        menu.append(gtk.SeparatorMenuItem('Refresh'))
 
         item_refresh = gtk.MenuItem('Refresh prices')
         item_refresh.connect('activate', lambda _: self.refresh_fc())
-        self.menu_items[MENU_ITEM_REFRESH] = item_refresh
-        self.menu.append(item_refresh)
+        menu.append(item_refresh)
 
-        self.menu.append(gtk.SeparatorMenuItem("Settings"))
+        menu.append(gtk.SeparatorMenuItem('Crypto currencies options'))
 
-        options = self.config.get_options()
+        crypto_currency_options = self.config.get_crypto_currency_options()
+        for crypto_currency in crypto_currency_options:
+            for option_key in crypto_currency_options[crypto_currency]:
+                item = gtk.CheckMenuItem(crypto_currency_options[crypto_currency][option_key].get_label(), active=crypto_currency_options[crypto_currency][option_key].get_status())
+                item.connect("activate", lambda _, currency, key: self.__toggle_crypto_currency_option_status(currency, key), crypto_currency, option_key)
+                menu.append(item)
+
+        menu.append(gtk.SeparatorMenuItem('General options'))
+
+        options = self.config.get_general_options()
         for option_key in options:
             item = gtk.CheckMenuItem(options[option_key].get_label(), active=options[option_key].get_status())
-            item.connect("activate", lambda _, key: self.__toggle_option_status(key), option_key)
-            self.menu_items[MENU_ITEM_SETTINGS + option_key] = item
-            self.menu.append(item)
+            item.connect("activate", lambda _, key: self.__toggle_general_option_status(key), option_key)
+            menu.append(item)
 
-        self.menu.append(gtk.SeparatorMenuItem('Quit'))
+        menu.append(gtk.SeparatorMenuItem('Quit'))
 
         item_quit = gtk.MenuItem('Quit')
         item_quit.connect('activate', lambda _: self.quit_fc())
-        self.menu_items[MENU_ITEM_QUIT] = item_quit
-        self.menu.append(item_quit)
+        menu.append(item_quit)
 
-        self.menu.show_all()
-        self.indicator.set_menu(self.menu)
+        menu.show_all()
+        self.indicator.set_menu(menu)
 
-    def __toggle_option_status(self, key):
-        option = self.config.get_options()[key]
+    def __update_indicator_label(self):
+        label = ''
+        for crypto_currency in self.prices:
+            if self.config.is_crypto_currency_visible(crypto_currency):
+                label += '  ' + self.__get_exchange_price_label(crypto_currency, self.prices[crypto_currency], False)
+        self.indicator.set_label(label, '')
+
+    def __toggle_general_option_status(self, option_key):
+        option = self.config.get_general_options()[option_key]
         option.set_status(not option.get_status())
+        self.__update_icon()
+        self.__update_menu()
         self.config.persist()
-        self.refresh_fc()
+
+    def __toggle_crypto_currency_option_status(self, crypto_currency, option_key):
+        option = self.config.get_crypto_currency_options()[crypto_currency][option_key]
+        option.set_status(not option.get_status())
+        self.__update_indicator_label()
+        self.__update_menu()
+        self.config.persist()
 
     def __get_exchange_price_label(self, crypto_currency, price, large=True):
         if large:
@@ -127,7 +133,7 @@ class Ui(object):
             return str(price) + self.real_currency_label
 
     def __get_icon_path(self):
-        if self.config.get_theme_monochrome_option().get_status():
+        if self.config.is_theme_monochrome():
             return join(getcwd(), 'img', '%s.svg' % ICON_MONOCHROME)
         else:
             return join(getcwd(), 'img', '%s.svg' % ICON_COLOR)

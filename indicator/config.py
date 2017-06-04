@@ -1,19 +1,20 @@
 import os
 import json
-import re
 
 CONFIG_FILE_PATH = os.path.expanduser("~/.coinbase-indicator")
 
+GENERAL_OPTION_KEY = 'general'
 OPTION_KEY_NOTIFICATION = 'show_notifications'
 OPTION_KEY_THEME_MONOCHROME = 'theme_monochrome'
-OPTION_KEY_CRYPTO_CURRENCY = 'show_crypto_currency_'
+
+CRYPTO_CURRENCY_OPTION_KEY = 'crypto_currency'
+OPTION_KEY_CRYPTO_CURRENCY_SHOW = 'show_exchange_price_of_'
 
 
 class Option(object):
-    def __init__(self, status, label, crypto_currency=None):
+    def __init__(self, status, label):
         self.status = status
         self.label = label
-        self.crypto_currency = crypto_currency
 
     def get_label(self):
         return self.label
@@ -24,8 +25,14 @@ class Option(object):
     def set_status(self, status):
         self.status = status
 
-    def is_crypto_currency_option(self):
-        return self.crypto_currency is not None
+    def get_crypto_currency(self):
+        return None
+
+
+class CryptoCurrencyOption(Option):
+    def __init__(self, status, label, crypto_currency):
+        Option.__init__(self, status, label)
+        self.crypto_currency = crypto_currency
 
     def get_crypto_currency(self):
         return self.crypto_currency
@@ -34,59 +41,74 @@ class Option(object):
 class Config(object):
 
     def __init__(self):
-        self.options = {
+        self.general_options = {
             OPTION_KEY_NOTIFICATION: Option(True, self.__get_label(OPTION_KEY_NOTIFICATION)),
             OPTION_KEY_THEME_MONOCHROME: Option(True, self.__get_label(OPTION_KEY_THEME_MONOCHROME)),
         }
-
-    def has_crypto_currency_option(self, crypto_currency):
-        return OPTION_KEY_CRYPTO_CURRENCY + crypto_currency in self.options
-
-    def get_crypto_currency_option(self, crypto_currency):
-        return self.options[OPTION_KEY_CRYPTO_CURRENCY + crypto_currency]
-
-    def get_notification_option(self):
-        return self.options[OPTION_KEY_NOTIFICATION]
-
-    def get_theme_monochrome_option(self):
-        return self.options[OPTION_KEY_THEME_MONOCHROME]
-
-    def has_option(self, key):
-        return key in self.options
-
-    def get_option(self, key):
-        return self.options[key]
-
-    def get_options(self):
-        return self.options
+        self.crypto_currency_options = {}
 
     def set_crypto_currencies_options(self, crypto_currencies):
         for crypto_currency in crypto_currencies:
-            if OPTION_KEY_CRYPTO_CURRENCY + crypto_currency not in self.options:
-                self.options[OPTION_KEY_CRYPTO_CURRENCY + crypto_currency] = Option(False, self.__get_label(OPTION_KEY_CRYPTO_CURRENCY + crypto_currency), crypto_currency)
+            if crypto_currency not in self.crypto_currency_options:
+                self.crypto_currency_options[crypto_currency] = {
+                    OPTION_KEY_CRYPTO_CURRENCY_SHOW: CryptoCurrencyOption(False, self.__get_label(OPTION_KEY_CRYPTO_CURRENCY_SHOW + crypto_currency), crypto_currency),
+                }
 
     def load(self):
         if not os.path.isfile(CONFIG_FILE_PATH):
             return
         with open(CONFIG_FILE_PATH, 'r') as config_file:
             config_dict = json.load(config_file)
-        for config_key in config_dict:
-            self.options[config_key] = Option(config_dict.get(config_key), self.__get_label(config_key), self.__find_crypto_currency(config_key))
+
+        if GENERAL_OPTION_KEY in config_dict:
+            for option_key in config_dict[GENERAL_OPTION_KEY]:
+                self.general_options[option_key] = Option(config_dict[GENERAL_OPTION_KEY][option_key], self.__get_label(option_key))
+
+        if CRYPTO_CURRENCY_OPTION_KEY in config_dict:
+            for crypto_currency in config_dict[CRYPTO_CURRENCY_OPTION_KEY]:
+                if crypto_currency not in self.crypto_currency_options:
+                    self.crypto_currency_options[crypto_currency] = {}
+                for option_key in config_dict[CRYPTO_CURRENCY_OPTION_KEY][crypto_currency]:
+                    self.crypto_currency_options[crypto_currency][option_key] = CryptoCurrencyOption(config_dict[CRYPTO_CURRENCY_OPTION_KEY][crypto_currency][option_key], self.__get_label(option_key), crypto_currency)
 
     def persist(self):
-        config_dict = {}
-        for config_key in self.options:
-            config_dict[config_key] = self.options[config_key].get_status()
+        config_dict = {
+            GENERAL_OPTION_KEY: {},
+            CRYPTO_CURRENCY_OPTION_KEY: {},
+        }
+
+        for option_key in self.general_options:
+            config_dict[GENERAL_OPTION_KEY][option_key] = self.general_options[option_key].get_status()
+
+        for crypto_currency in self.crypto_currency_options:
+            config_dict[CRYPTO_CURRENCY_OPTION_KEY][crypto_currency] = {}
+            for option_key in self.crypto_currency_options[crypto_currency]:
+                config_dict[CRYPTO_CURRENCY_OPTION_KEY][crypto_currency][option_key] = self.crypto_currency_options[crypto_currency][option_key].get_status()
+
         with open(CONFIG_FILE_PATH, 'w') as config_file:
             json.dump(config_dict, config_file)
 
-    @staticmethod
-    def __find_crypto_currency(key):
-        crypto_currency_math = re.search(r'^' + OPTION_KEY_CRYPTO_CURRENCY + '([A-Z]+)$', key)
-        if crypto_currency_math:
-            return crypto_currency_math.group(1)
-        else:
-            return None
+    def get_crypto_currency_options(self):
+        return self.crypto_currency_options
+
+    def get_general_options(self):
+        return self.general_options
+
+    def is_crypto_currency_visible(self, crypto_currency):
+        return \
+            crypto_currency in self.crypto_currency_options \
+            and OPTION_KEY_CRYPTO_CURRENCY_SHOW in self.crypto_currency_options[crypto_currency] \
+            and self.crypto_currency_options[crypto_currency][OPTION_KEY_CRYPTO_CURRENCY_SHOW].get_status()
+
+    def is_theme_monochrome(self):
+        return \
+            OPTION_KEY_THEME_MONOCHROME in self.general_options \
+            and self.general_options[OPTION_KEY_THEME_MONOCHROME].get_status()
+
+    def is_notification_visible(self):
+        return \
+            OPTION_KEY_NOTIFICATION in self.general_options \
+            and self.general_options[OPTION_KEY_NOTIFICATION].get_status()
 
     @staticmethod
     def __get_label(key):

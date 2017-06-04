@@ -48,7 +48,6 @@ class Indicator(object):
 
     def __refresh(self, silent=False):
         self.__update_prices()
-        self.interface.update_icon()
         self.interface.update_prices(self.prices)
         if not silent:
             self.interface.display_notification('Prices updated')
