@@ -11,7 +11,7 @@ _Only tested on Ubuntu 16.04_
  * Clone this repository
  * Install dependencies:
     ```
-    sudo apt update && sudo apt install python python-gi
+    sudo apt update && sudo apt install python python-gi python-requests
     ```
  * Run it
     ```
